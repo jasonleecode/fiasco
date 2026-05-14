@@ -157,7 +157,7 @@ Switch_lock::help(Context *curr, Context *owner, Address owner_id)
     {
       Proc::preemption_point();
       if (curr->home_cpu() != current_cpu())
-        curr->schedule();
+        curr->schedule_if(true);
     }
 }
 

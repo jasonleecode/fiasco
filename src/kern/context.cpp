@@ -1035,7 +1035,7 @@ void
 Context::switch_to_locked(Context *t)
 {
   if (schedule_switch_to_locked(t) != Switch::Ok) [[unlikely]]
-    schedule();
+    schedule_if(true);
 }
 
 /**
