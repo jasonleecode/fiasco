@@ -263,7 +263,7 @@ Switch_lock::set_lock_owner(Context *o)
 PRIVATE static inline
 void
 Switch_lock::schedule(Context *curr)
-{ curr->schedule(); }
+{ curr->schedule_if(true); }
 
 // ----------------------------------------------------------------------
 IMPLEMENTATION [mp]:
@@ -309,7 +309,7 @@ PRIVATE static inline
 void
 Switch_lock::schedule(Context *curr)
 {
-  curr->schedule();
+  curr->schedule_if(true);
   /* we have to recheck the correct setting of `curr->_running_under_lock`
    * after schedule, because the home CPU of `curr` might have been set to
    * the current CPU meanwhile.
