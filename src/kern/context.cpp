@@ -755,6 +755,23 @@ void
 Context::schedule()
 {
   auto guard = lock_guard(cpu_lock);
+
+  // schedule_in_progress marks that a schedule() on this CPU is currently
+  // inside its Proc::preemption_point() window; it lets an IRQ taken in that
+  // window bail out of a re-attempted reschedule (see schedule_if()).  The
+  // marker is only meaningful while its owner is the running context.  If the
+  // owner was preemptively switched away before clearing it — e.g. the
+  // idle/kernel context handing the CPU to a freshly-woken thread during its
+  // own preemption point — the marker is left stale, owned by a context that
+  // is no longer current.  That does not denote a schedule in progress now, so
+  // drop it.  A marker owned by the *current* context is a genuine re-entry and
+  // must still trip the assertion below.
+  {
+    Sched_context::Ready_queue &crq = Sched_context::rq.current();
+    if (crq.schedule_in_progress && crq.schedule_in_progress != current())
+      [[unlikely]]
+        crq.schedule_in_progress = nullptr;
+  }
   assert (!Sched_context::rq.current().schedule_in_progress);
 
   // we give up the CPU as a helpee, so we have no helper anymore
@@ -826,7 +843,13 @@ Context::schedule()
       rq->schedule_in_progress = this;
       Proc::preemption_point();
       if (current_cpu == ::current_cpu()) [[likely]]
-        rq->schedule_in_progress = nullptr;
+        {
+          // Clear only our own marker: while we were in the preemption point it
+          // may have been dropped by a context that found it stale (and perhaps
+          // re-set by yet another), so we must not blindly clobber it.
+          if (rq->schedule_in_progress == this)
+            rq->schedule_in_progress = nullptr;
+        }
       else
         return; // we got migrated and selected on our new CPU, so we may run
     }
